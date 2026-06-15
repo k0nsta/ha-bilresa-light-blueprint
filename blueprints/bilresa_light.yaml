@@ -66,17 +66,30 @@ blueprint:
             { label: "Turn on", value: "on" },
             { label: "Turn off", value: "off" },
             { label: "On with preset (brightness + colour)", value: preset },
+            { label: "Activate a scene", value: scene },
             { label: "Next colour", value: color_next },
             { label: "Previous colour", value: color_prev },
             { label: "Do nothing", value: none } ] } }
+        single_scene:
+          name: Single-click scene (when action = Activate a scene)
+          default: []
+          selector: { entity: { filter: { domain: scene } } }
         double_action:
           name: Double-click
           default: color_next
           selector: *act
+        double_scene:
+          name: Double-click scene (when action = Activate a scene)
+          default: []
+          selector: { entity: { filter: { domain: scene } } }
         hold_action:
           name: Long-press (hold)
           default: "off"
           selector: *act
+        hold_scene:
+          name: Long-press scene (when action = Activate a scene)
+          default: []
+          selector: { entity: { filter: { domain: scene } } }
     sec_preset:
       name: 5 · Preset (for "On with preset")
       icon: mdi:star
@@ -210,6 +223,14 @@ variables:
   single_action: !input single_action
   double_action: !input double_action
   hold_action: !input hold_action
+  single_scene: !input single_scene
+  double_scene: !input double_scene
+  hold_scene: !input hold_scene
+  scene_for: >-
+    {% if et == 'multi_press_1' %}{{ single_scene }}
+    {% elif et == 'multi_press_2' %}{{ double_scene }}
+    {% elif et == 'long_press' %}{{ hold_scene }}
+    {% else %}{{ '' }}{% endif %}
   preset_brightness: !input preset_brightness
   preset_color_kind: !input preset_color_kind
   preset_temp: !input preset_temp
@@ -346,6 +367,13 @@ action:
           - action: light.turn_on
             target: !input light_target
             data: "{{ preset_data }}"
+      - conditions: >-
+          {{ trigger.id == 'press' and btn == 'scene'
+             and scene_for not in ['', none] and (scene_for | string | length) > 0 }}
+        sequence:
+          - action: scene.turn_on
+            target: { entity_id: "{{ scene_for }}" }
+            data: { transition: "{{ trans_s }}" }
       - conditions: "{{ trigger.id == 'press' and btn == 'color_next' }}"
         sequence:
           - action: light.turn_on

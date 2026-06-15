@@ -45,7 +45,8 @@ also stops bursts from piling up.
 ## Options
 
 - **Wheel does:** Brightness · Colour temperature (warm↔cool) · RGB cycle.
-- **Button actions** (single/double/long): Toggle · On · Off · On-with-preset · Next/Previous
+- **Button actions** (single/double/long): Toggle · On · Off · On-with-preset ·
+  **Activate a scene** (e.g. a "Watch TV" scene — pick a scene per button) · Next/Previous
   colour · Nothing.
 - **Preset:** brightness + colour (keep / colour-temp / RGB) for "On-with-preset".
 - **Colour:** Kelvin range/step for temp, and an editable RGB cycle list.
