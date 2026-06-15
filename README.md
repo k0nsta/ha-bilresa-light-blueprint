@@ -33,12 +33,27 @@ So a slow notch nudges and a fast spin sweeps — instead of a fixed tiny step p
 
 ## What it does
 
-- **Scroll up/down** → smooth dim up/down (speed-proportional).
-- **Single press** → toggle.
-- **Double press** → full brightness.
-- **Long press** → off.
+| Control | Action |
+|---------|--------|
+| **Scroll up / down** | Smooth dim up/down (`step × N`, speed-proportional) |
+| **Single press** | Toggle — *night-aware* (turns on at night brightness/colour during night mode) |
+| **Double press** | Next colour (warmer, or next RGB in the cycle) |
+| **Triple press** | Previous colour (cooler, or previous RGB) |
+| **Long press** | Off |
 
-(Tweak the press actions in the imported automation's YAML if you want colour cycling etc.)
+## Options
+
+- **Dimming feel** — brightness per notch, max speed multiplier.
+- **Transitions** — on/off toggle + time. *Off by default* (transitions freeze many Matter bulbs on fast scrolls).
+- **Colour** — mode = **Off / Colour temperature / RGB**.
+  - *Colour temperature*: double = warmer, triple = cooler, within a configurable Kelvin range/step.
+  - *RGB*: double/triple cycle a configurable list of colours.
+- **Night mode** — enable + **time schedule** (start/end), with an optional override entity
+  (`input_boolean` / `binary_sensor` / `schedule`). During night mode, turning the light on
+  uses a **night brightness** and **night colour temp**. Dimming/colour still work normally.
+
+> Colour reads the light's current state, so point at specific light entities (not just an
+> area) for the most reliable next/previous cycling.
 
 ## Setup
 

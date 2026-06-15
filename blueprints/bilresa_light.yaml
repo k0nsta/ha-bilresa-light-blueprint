@@ -2,85 +2,136 @@ blueprint:
   name: IKEA BILRESA scroll wheel — smooth light control
   description: >
     Light-only control for the IKEA **BILRESA scroll wheel** (Matter) with **smooth,
-    speed-proportional dimming**.
+    speed-proportional dimming**, **night mode** (schedule-aware), and **colour temp / RGB**
+    control on the center button.
 
-    The wheel exposes its controls as Matter "generic switch" button-endpoints that
-    fire `event` entities. This blueprint binds **one product group** (scroll-up,
-    scroll-down, center-press) to **one light/area**. Create one automation per group
-    if you use the under-LED button to switch between up to 3 light groups.
+    The wheel is a Matter "generic switch" with 9 button-endpoints (`event` entities). The
+    under-LED button cycles 3 product groups, so the 9 endpoints are
+    **3 groups × (scroll-up, scroll-down, center-press)**. Bind ONE group here; make one
+    automation per group to drive 3 different lights.
 
-    **Smoothness:** every scroll notch fires `multi_press_N`, where *N = number of
-    notches in the gesture*. Brightness changes by `step × N` (capped), with a short
-    transition — so a slow notch nudges, a fast spin sweeps. This is the key fix over
-    blueprints that apply a fixed step per event.
+    **Smoothness:** each scroll fires `multi_press_N` (N = notches). Brightness changes by
+    `step × N` (capped) — slow notch nudges, fast spin sweeps. Transition defaults OFF
+    (many Matter bulbs freeze on fast scrolls with transitions on).
 
-    Center press: single = toggle, double = full brightness, long-press = off
-    (all easy to tweak in the automation YAML afterwards).
+    **Center press:** single = toggle (night-aware), double = next colour, triple = previous
+    colour, long-press = off.
   domain: automation
   source_url: https://github.com/k0nsta/ha-bilresa-light-blueprint/blob/main/blueprints/bilresa_light.yaml
   input:
-    devices:
-      name: Wheel events
+    wheel:
+      name: Wheel events (one group)
       icon: mdi:knob
-      collapsed: false
       input:
         scroll_up:
           name: Scroll-up event entity
-          description: For Group 2 this is `event.bilresa_scroll_wheel_button_4_2`.
-          selector:
-            entity:
-              filter: { domain: event }
+          description: Group 2 = `event.bilresa_scroll_wheel_button_4_2`.
+          selector: { entity: { filter: { domain: event } } }
         scroll_down:
           name: Scroll-down event entity
-          description: For Group 2 this is `event.bilresa_scroll_wheel_button_5_2`.
-          selector:
-            entity:
-              filter: { domain: event }
+          description: Group 2 = `event.bilresa_scroll_wheel_button_5_2`.
+          selector: { entity: { filter: { domain: event } } }
         press:
           name: Center-press event entity
-          description: The one with long_press (button 3/6/9). Group 2 = `..._button_6_2`.
-          selector:
-            entity:
-              filter: { domain: event }
-    target:
+          description: The one with long_press (3/6/9). Group 2 = `..._button_6_2`.
+          selector: { entity: { filter: { domain: event } } }
+    light:
       name: Light
       icon: mdi:lightbulb
       input:
         light_target:
           name: Light / area to control
-          selector:
-            target:
-              entity:
-                domain: light
-    tuning:
+          selector: { target: { entity: { domain: light } } }
+    dimming:
       name: Dimming feel
       icon: mdi:tune
       collapsed: true
       input:
         step_pct:
           name: Brightness per notch (%)
-          description: Base change for a single notch. Fast spins multiply this by the notch count.
           default: 8
-          selector:
-            number: { min: 1, max: 25, step: 1, unit_of_measurement: "%", mode: slider }
+          selector: { number: { min: 1, max: 25, step: 1, unit_of_measurement: "%", mode: slider } }
         max_multiplier:
           name: Max speed multiplier
-          description: Caps how big a single fast spin can jump (× the base step).
           default: 6
-          selector:
-            number: { min: 1, max: 8, step: 1, mode: slider }
+          selector: { number: { min: 1, max: 8, step: 1, mode: slider } }
+    transitions:
+      name: Transitions
+      icon: mdi:transition
+      collapsed: true
+      input:
+        use_transition:
+          name: Use transitions
+          description: OFF is safest for IKEA/Matter bulbs (transitions can freeze them on fast scrolls).
+          default: false
+          selector: { boolean: {} }
         transition:
-          name: Transition (s)
-          description: >
-            Glides each change instead of snapping. Keep at 0 for IKEA/Matter bulbs —
-            transitions make many Matter lights freeze/lag on fast scrolls. Raise only if
-            your bulb handles it well.
-          default: 0
+          name: Transition time (s)
+          description: Used only when transitions are ON.
+          default: 0.4
+          selector: { number: { min: 0, max: 3, step: 0.1, unit_of_measurement: s, mode: slider } }
+    colour:
+      name: Colour (double / triple press)
+      icon: mdi:palette
+      collapsed: true
+      input:
+        colour_control:
+          name: Colour control mode
+          default: color_temp
           selector:
-            number: { min: 0, max: 2, step: 0.1, unit_of_measurement: s, mode: slider }
+            select:
+              options:
+                - { label: "Off", value: "off" }
+                - { label: "Colour temperature (warmer / cooler)", value: "color_temp" }
+                - { label: "RGB colour cycle", value: "rgb" }
+        ct_min:
+          name: Warmest colour temp (K)
+          default: 2200
+          selector: { number: { min: 1500, max: 4000, step: 50, unit_of_measurement: K, mode: slider } }
+        ct_max:
+          name: Coolest colour temp (K)
+          default: 5000
+          selector: { number: { min: 3000, max: 6500, step: 50, unit_of_measurement: K, mode: slider } }
+        ct_step:
+          name: Colour temp step (K)
+          default: 400
+          selector: { number: { min: 100, max: 1000, step: 50, unit_of_measurement: K, mode: slider } }
+        rgb_colours:
+          name: RGB cycle list
+          description: Used when mode = RGB. Double = next, triple = previous.
+          default: [[255, 170, 90], [255, 255, 255], [255, 80, 40], [120, 160, 255], [180, 90, 255]]
+          selector: { object: {} }
+    night:
+      name: Night mode
+      icon: mdi:weather-night
+      collapsed: true
+      input:
+        night_enable:
+          name: Enable night mode
+          default: false
+          selector: { boolean: {} }
+        night_start:
+          name: Night start
+          default: "22:00:00"
+          selector: { time: {} }
+        night_end:
+          name: Night end
+          default: "07:00:00"
+          selector: { time: {} }
+        night_override:
+          name: Night override (optional)
+          description: A toggle/binary_sensor that forces night mode on when 'on'.
+          default: []
+          selector: { entity: { multiple: false, filter: [{ domain: input_boolean }, { domain: binary_sensor }, { domain: schedule }] } }
+        night_brightness:
+          name: Night turn-on brightness (%)
+          default: 15
+          selector: { number: { min: 1, max: 100, step: 1, unit_of_measurement: "%", mode: slider } }
+        night_color_temp:
+          name: Night colour temp (K)
+          default: 2200
+          selector: { number: { min: 1500, max: 4000, step: 50, unit_of_measurement: K, mode: slider } }
 
-# queued + small cap: a fast spin's burst can't pile up into the ~10s "freeze"
-# users hit elsewhere — excess events are dropped instead of backlogging the light.
 mode: queued
 max: 4
 max_exceeded: silent
@@ -101,8 +152,41 @@ variables:
   notches: "{{ (et.split('_')[-1] | int(1)) if 'multi_press' in et else 1 }}"
   step: !input step_pct
   maxm: !input max_multiplier
-  trans: !input transition
   delta: "{{ ([notches | int(1), maxm | int(6)] | min) * (step | int(8)) }}"
+  use_trans: !input use_transition
+  trans_val: !input transition
+  trans_s: "{{ trans_val if use_trans else 0 }}"
+  colour_control: !input colour_control
+  ct_min: !input ct_min
+  ct_max: !input ct_max
+  ct_step: !input ct_step
+  rgb_colours: !input rgb_colours
+  night_enable: !input night_enable
+  night_start: !input night_start
+  night_end: !input night_end
+  night_override: !input night_override
+  night_brightness: !input night_brightness
+  night_color_temp: !input night_color_temp
+  light_target: !input light_target
+  first_light: >-
+    {% set t = light_target %}
+    {% set e = t.get('entity_id', []) if t is mapping else [] %}
+    {% if e is string %}{% set e = [e] %}{% endif %}
+    {% if not e and t is mapping and t.get('area_id') %}
+      {% set a = t['area_id'] %}{% set a = a[0] if (a is iterable and a is not string) else a %}
+      {% set e = area_entities(a) | select('match', '^light\\.') | list %}
+    {% endif %}
+    {{ e[0] if e else '' }}
+  night_active: >-
+    {% if not night_enable %}{{ false }}
+    {% else %}
+      {% set st = strptime(night_start, '%H:%M:%S').time() %}
+      {% set en = strptime(night_end, '%H:%M:%S').time() %}
+      {% set n = now().time() %}
+      {% set win = (n >= st or n < en) if st > en else (st <= n < en) %}
+      {% set ov = (night_override | length > 0) and is_state(night_override, 'on') %}
+      {{ win or ov }}
+    {% endif %}
 
 conditions:
   - "{{ trigger.to_state is not none and trigger.to_state.state not in ['unavailable','unknown'] }}"
@@ -110,41 +194,99 @@ conditions:
 
 action:
   - choose:
-      # ---- scroll up: brighten by step*N ----
+      # ---------- scroll up ----------
       - conditions: "{{ trigger.id == 'up' }}"
         sequence:
           - action: light.turn_on
             target: !input light_target
             data:
               brightness_step_pct: "{{ delta }}"
-              transition: "{{ trans }}"
-      # ---- scroll down: dim by step*N ----
+              transition: "{{ trans_s }}"
+      # ---------- scroll down ----------
       - conditions: "{{ trigger.id == 'down' }}"
         sequence:
           - action: light.turn_on
             target: !input light_target
             data:
               brightness_step_pct: "{{ -delta }}"
-              transition: "{{ trans }}"
-      # ---- single press: toggle ----
+              transition: "{{ trans_s }}"
+      # ---------- single press: night-aware toggle ----------
       - conditions: "{{ trigger.id == 'press' and et == 'multi_press_1' }}"
         sequence:
-          - action: light.toggle
-            target: !input light_target
-            data:
-              transition: "{{ trans }}"
-      # ---- double press: full brightness ----
-      - conditions: "{{ trigger.id == 'press' and et == 'multi_press_2' }}"
+          - choose:
+              # currently on -> turn off
+              - conditions: "{{ first_light != '' and is_state(first_light, 'on') }}"
+                sequence:
+                  - action: light.turn_off
+                    target: !input light_target
+                    data: { transition: "{{ trans_s }}" }
+              # off + night -> on at night brightness/colour
+              - conditions: "{{ night_active }}"
+                sequence:
+                  - action: light.turn_on
+                    target: !input light_target
+                    data:
+                      brightness_pct: "{{ night_brightness }}"
+                      color_temp_kelvin: "{{ night_color_temp }}"
+                      transition: "{{ trans_s }}"
+            # off + day -> plain on
+            default:
+              - action: light.turn_on
+                target: !input light_target
+                data: { transition: "{{ trans_s }}" }
+      # ---------- double press: next colour ----------
+      - conditions: "{{ trigger.id == 'press' and et == 'multi_press_2' and colour_control != 'off' }}"
         sequence:
-          - action: light.turn_on
-            target: !input light_target
-            data:
-              brightness_pct: 100
-              transition: "{{ trans }}"
-      # ---- long press: off ----
+          - choose:
+              - conditions: "{{ colour_control == 'color_temp' }}"
+                sequence:
+                  - action: light.turn_on
+                    target: !input light_target
+                    data:
+                      color_temp_kelvin: >-
+                        {% set cur = state_attr(first_light, 'color_temp_kelvin') | int(ct_min) %}
+                        {{ [ct_min | int, cur - (ct_step | int)] | max }}
+                      transition: "{{ trans_s }}"
+              - conditions: "{{ colour_control == 'rgb' }}"
+                sequence:
+                  - action: light.turn_on
+                    target: !input light_target
+                    data:
+                      rgb_color: >-
+                        {% set lst = rgb_colours %}
+                        {% set cur = state_attr(first_light, 'rgb_color') %}
+                        {% set ns = namespace(i=-1) %}
+                        {% for c in lst %}{% if (c | list) == (cur | list) %}{% set ns.i = loop.index0 %}{% endif %}{% endfor %}
+                        {{ lst[(ns.i + 1) % (lst | length)] }}
+                      transition: "{{ trans_s }}"
+      # ---------- triple press: previous colour ----------
+      - conditions: "{{ trigger.id == 'press' and et == 'multi_press_3' and colour_control != 'off' }}"
+        sequence:
+          - choose:
+              - conditions: "{{ colour_control == 'color_temp' }}"
+                sequence:
+                  - action: light.turn_on
+                    target: !input light_target
+                    data:
+                      color_temp_kelvin: >-
+                        {% set cur = state_attr(first_light, 'color_temp_kelvin') | int(ct_max) %}
+                        {{ [ct_max | int, cur + (ct_step | int)] | min }}
+                      transition: "{{ trans_s }}"
+              - conditions: "{{ colour_control == 'rgb' }}"
+                sequence:
+                  - action: light.turn_on
+                    target: !input light_target
+                    data:
+                      rgb_color: >-
+                        {% set lst = rgb_colours %}
+                        {% set cur = state_attr(first_light, 'rgb_color') %}
+                        {% set ns = namespace(i=0) %}
+                        {% for c in lst %}{% if (c | list) == (cur | list) %}{% set ns.i = loop.index0 %}{% endif %}{% endfor %}
+                        {{ lst[(ns.i - 1) % (lst | length)] }}
+                      transition: "{{ trans_s }}"
+      # ---------- long press: off ----------
       - conditions: "{{ trigger.id == 'press' and et == 'long_press' }}"
         sequence:
           - action: light.turn_off
             target: !input light_target
-            data:
-              transition: "{{ trans }}"
+            data: { transition: "{{ trans_s }}" }
