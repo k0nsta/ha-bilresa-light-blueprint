@@ -230,7 +230,10 @@ triggers:
     id: press
 
 variables:
-  et: "{{ trigger.to_state.attributes.event_type | default('') }}"
+  et: >-
+    {{ trigger.to_state.attributes.event_type
+       if (trigger is defined and trigger is mapping and trigger.get('to_state'))
+       else '' }}
   notches: "{{ (et.split('_')[-1] | int(1)) if 'multi_press' in et else 1 }}"
   step: !input step_pct
   maxm: !input max_multiplier
@@ -240,8 +243,8 @@ variables:
   trans_s: "{{ trans_val if use_trans else 0 }}"
   brightness_helper: !input brightness_helper
   use_helper: >-
-    {{ brightness_helper not in ['', none]
-       and (brightness_helper | string | length) > 0
+    {{ brightness_helper is string
+       and brightness_helper not in ['', 'none', 'unknown', 'unavailable']
        and has_value(brightness_helper) }}
   wheel_mode: !input wheel_mode
   single_action: !input single_action
@@ -316,8 +319,8 @@ variables:
     {{ d }}
 
 conditions:
-  - "{{ trigger.to_state is not none and trigger.to_state.state not in ['unavailable','unknown'] }}"
   - "{{ et != '' }}"
+  - "{{ trigger.to_state is defined and trigger.to_state.state not in ['unavailable','unknown'] }}"
 
 action:
   - variables:
@@ -430,7 +433,7 @@ action:
                 data: "{{ preset_data }}"
       - conditions: >-
           {{ trigger.id == 'press' and btn == 'scene'
-             and scene_for not in ['', none] and (scene_for | string | length) > 0 }}
+             and scene_for is string and scene_for not in ['', 'none'] }}
         sequence:
           - action: scene.turn_on
             target: { entity_id: "{{ scene_for }}" }
