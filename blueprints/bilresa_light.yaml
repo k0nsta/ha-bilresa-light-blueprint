@@ -1,49 +1,125 @@
 blueprint:
-  name: IKEA BILRESA scroll wheel — smooth light control
+  name: IKEA BILRESA scroll wheel — light control
   description: >
-    Light-only control for the IKEA **BILRESA scroll wheel** (Matter) with **smooth,
-    speed-proportional dimming**, **night mode** (schedule-aware), and **colour temp / RGB**
-    control on the center button.
+    Flexible, light-only control for the IKEA **BILRESA scroll wheel** (Matter).
 
-    The wheel is a Matter "generic switch" with 9 button-endpoints (`event` entities). The
-    under-LED button cycles 3 product groups, so the 9 endpoints are
-    **3 groups × (scroll-up, scroll-down, center-press)**. Bind ONE group here; make one
-    automation per group to drive 3 different lights.
+    Flow: **pick a light → choose what the wheel does → assign each press an action.**
+    Smooth, speed-proportional dimming (`step × N`), night mode with its own brightness and
+    colour (temp *or* RGB), and colour-temp / RGB control.
 
-    **Smoothness:** each scroll fires `multi_press_N` (N = notches). Brightness changes by
-    `step × N` (capped) — slow notch nudges, fast spin sweeps. Transition defaults OFF
-    (many Matter bulbs freeze on fast scrolls with transitions on).
-
-    **Center press:** single = toggle (night-aware), double = next colour, triple = previous
-    colour, long-press = off.
+    The wheel is a Matter generic switch with 9 button-endpoints; the under-LED button cycles
+    3 product groups, so the endpoints are **3 groups × (scroll-up, scroll-down, press)**.
+    Bind ONE group; make one automation per group to drive several lights.
   domain: automation
   source_url: https://github.com/k0nsta/ha-bilresa-light-blueprint/blob/main/blueprints/bilresa_light.yaml
   input:
-    wheel:
-      name: Wheel events (one group)
-      icon: mdi:knob
-      input:
-        scroll_up:
-          name: Scroll-up event entity
-          description: Group 2 = `event.bilresa_scroll_wheel_button_4_2`.
-          selector: { entity: { filter: { domain: event } } }
-        scroll_down:
-          name: Scroll-down event entity
-          description: Group 2 = `event.bilresa_scroll_wheel_button_5_2`.
-          selector: { entity: { filter: { domain: event } } }
-        press:
-          name: Center-press event entity
-          description: The one with long_press (3/6/9). Group 2 = `..._button_6_2`.
-          selector: { entity: { filter: { domain: event } } }
-    light:
-      name: Light
+    sec_light:
+      name: 1 · Light
       icon: mdi:lightbulb
       input:
         light_target:
-          name: Light / area to control
+          name: Light(s) to control
+          description: One light, a group, an area, or several.
           selector: { target: { entity: { domain: light } } }
-    dimming:
-      name: Dimming feel
+    sec_wheel:
+      name: 2 · Wheel events
+      icon: mdi:knob
+      description: >
+        Pick the three event entities for ONE group. For Group 2 these are
+        "Button (4)" = up, "Button (5)" = down, "Button (6)" = press.
+      input:
+        scroll_up:
+          name: Scroll-up event entity ("Button (4)")
+          selector: { entity: { filter: { domain: event } } }
+        scroll_down:
+          name: Scroll-down event entity ("Button (5)")
+          selector: { entity: { filter: { domain: event } } }
+        press:
+          name: Center-press event entity ("Button (6)")
+          selector: { entity: { filter: { domain: event } } }
+    sec_wheel_mode:
+      name: 3 · What the wheel does
+      icon: mdi:rotate-360
+      input:
+        wheel_mode:
+          name: Scroll adjusts…
+          default: brightness
+          selector:
+            select:
+              options:
+                - { label: "Brightness (dim)", value: brightness }
+                - { label: "Colour temperature (warm ↔ cool)", value: color_temp }
+                - { label: "RGB colour (cycle the list)", value: rgb }
+    sec_buttons:
+      name: 4 · Button actions
+      icon: mdi:gesture-tap-button
+      input:
+        single_action:
+          name: Single-click
+          default: toggle
+          selector: &act { select: { options: [
+            { label: "Toggle on/off", value: toggle },
+            { label: "Turn on", value: "on" },
+            { label: "Turn off", value: "off" },
+            { label: "On with preset (brightness + colour)", value: preset },
+            { label: "Next colour", value: color_next },
+            { label: "Previous colour", value: color_prev },
+            { label: "Do nothing", value: none } ] } }
+        double_action:
+          name: Double-click
+          default: color_next
+          selector: *act
+        hold_action:
+          name: Long-press (hold)
+          default: "off"
+          selector: *act
+    sec_preset:
+      name: 5 · Preset (for "On with preset")
+      icon: mdi:star
+      collapsed: true
+      input:
+        preset_brightness:
+          name: Preset brightness (%)
+          default: 80
+          selector: { number: { min: 1, max: 100, step: 1, unit_of_measurement: "%", mode: slider } }
+        preset_color_kind:
+          name: Preset colour
+          default: color_temp
+          selector: &colourkind { select: { options: [
+            { label: "Keep current", value: none },
+            { label: "Colour temperature", value: color_temp },
+            { label: "RGB", value: rgb } ] } }
+        preset_temp:
+          name: Preset colour temp (K)
+          default: 3000
+          selector: { number: { min: 1500, max: 6500, step: 50, unit_of_measurement: K, mode: slider } }
+        preset_rgb:
+          name: Preset RGB
+          default: [255, 200, 120]
+          selector: { color_rgb: {} }
+    sec_colour:
+      name: 6 · Colour cycle ranges
+      icon: mdi:palette
+      collapsed: true
+      input:
+        ct_min:
+          name: Warmest temp (K)
+          default: 2200
+          selector: { number: { min: 1500, max: 4000, step: 50, unit_of_measurement: K, mode: slider } }
+        ct_max:
+          name: Coolest temp (K)
+          default: 5000
+          selector: { number: { min: 3000, max: 6500, step: 50, unit_of_measurement: K, mode: slider } }
+        ct_step:
+          name: Temp step (K)
+          default: 400
+          selector: { number: { min: 100, max: 1500, step: 50, unit_of_measurement: K, mode: slider } }
+        rgb_colours:
+          name: RGB cycle list
+          default: [[255, 170, 90], [255, 255, 255], [255, 80, 40], [120, 160, 255], [180, 90, 255]]
+          selector: { object: {} }
+    sec_dimming:
+      name: 7 · Dimming feel
       icon: mdi:tune
       collapsed: true
       input:
@@ -55,11 +131,6 @@ blueprint:
           name: Max speed multiplier
           default: 6
           selector: { number: { min: 1, max: 8, step: 1, mode: slider } }
-    transitions:
-      name: Transitions
-      icon: mdi:transition
-      collapsed: true
-      input:
         use_transition:
           name: Use transitions
           description: OFF is safest for IKEA/Matter bulbs (transitions can freeze them on fast scrolls).
@@ -67,42 +138,10 @@ blueprint:
           selector: { boolean: {} }
         transition:
           name: Transition time (s)
-          description: Used only when transitions are ON.
           default: 0.4
           selector: { number: { min: 0, max: 3, step: 0.1, unit_of_measurement: s, mode: slider } }
-    colour:
-      name: Colour (double / triple press)
-      icon: mdi:palette
-      collapsed: true
-      input:
-        colour_control:
-          name: Colour control mode
-          default: color_temp
-          selector:
-            select:
-              options:
-                - { label: "Off", value: "off" }
-                - { label: "Colour temperature (warmer / cooler)", value: "color_temp" }
-                - { label: "RGB colour cycle", value: "rgb" }
-        ct_min:
-          name: Warmest colour temp (K)
-          default: 2200
-          selector: { number: { min: 1500, max: 4000, step: 50, unit_of_measurement: K, mode: slider } }
-        ct_max:
-          name: Coolest colour temp (K)
-          default: 5000
-          selector: { number: { min: 3000, max: 6500, step: 50, unit_of_measurement: K, mode: slider } }
-        ct_step:
-          name: Colour temp step (K)
-          default: 400
-          selector: { number: { min: 100, max: 1000, step: 50, unit_of_measurement: K, mode: slider } }
-        rgb_colours:
-          name: RGB cycle list
-          description: Used when mode = RGB. Double = next, triple = previous.
-          default: [[255, 170, 90], [255, 255, 255], [255, 80, 40], [120, 160, 255], [180, 90, 255]]
-          selector: { object: {} }
-    night:
-      name: Night mode
+    sec_night:
+      name: 8 · Night mode
       icon: mdi:weather-night
       collapsed: true
       input:
@@ -120,17 +159,24 @@ blueprint:
           selector: { time: {} }
         night_override:
           name: Night override (optional)
-          description: A toggle/binary_sensor that forces night mode on when 'on'.
           default: []
           selector: { entity: { multiple: false, filter: [{ domain: input_boolean }, { domain: binary_sensor }, { domain: schedule }] } }
         night_brightness:
           name: Night turn-on brightness (%)
           default: 15
           selector: { number: { min: 1, max: 100, step: 1, unit_of_measurement: "%", mode: slider } }
-        night_color_temp:
+        night_color_kind:
+          name: Night colour
+          default: color_temp
+          selector: *colourkind
+        night_temp:
           name: Night colour temp (K)
           default: 2200
           selector: { number: { min: 1500, max: 4000, step: 50, unit_of_measurement: K, mode: slider } }
+        night_rgb:
+          name: Night RGB
+          default: [255, 120, 40]
+          selector: { color_rgb: {} }
 
 mode: queued
 max: 4
@@ -156,7 +202,14 @@ variables:
   use_trans: !input use_transition
   trans_val: !input transition
   trans_s: "{{ trans_val if use_trans else 0 }}"
-  colour_control: !input colour_control
+  wheel_mode: !input wheel_mode
+  single_action: !input single_action
+  double_action: !input double_action
+  hold_action: !input hold_action
+  preset_brightness: !input preset_brightness
+  preset_color_kind: !input preset_color_kind
+  preset_temp: !input preset_temp
+  preset_rgb: !input preset_rgb
   ct_min: !input ct_min
   ct_max: !input ct_max
   ct_step: !input ct_step
@@ -166,7 +219,9 @@ variables:
   night_end: !input night_end
   night_override: !input night_override
   night_brightness: !input night_brightness
-  night_color_temp: !input night_color_temp
+  night_color_kind: !input night_color_kind
+  night_temp: !input night_temp
+  night_rgb: !input night_rgb
   light_target: !input light_target
   first_light: >-
     {% set t = light_target %}
@@ -187,92 +242,67 @@ variables:
       {% set ov = (night_override | length > 0) and is_state(night_override, 'on') %}
       {{ win or ov }}
     {% endif %}
+  # data dict used when an action turns the light ON (night settings win during night)
+  on_data: >-
+    {% set d = {} %}
+    {% if night_active %}
+      {% set d = dict(d, **{'brightness_pct': night_brightness}) %}
+      {% if night_color_kind == 'color_temp' %}{% set d = dict(d, **{'color_temp_kelvin': night_temp}) %}
+      {% elif night_color_kind == 'rgb' %}{% set d = dict(d, **{'rgb_color': night_rgb}) %}{% endif %}
+    {% endif %}
+    {% if trans_s | float(0) > 0 %}{% set d = dict(d, **{'transition': trans_s}) %}{% endif %}
+    {{ d }}
+  preset_data: >-
+    {% set d = {'brightness_pct': preset_brightness} %}
+    {% if night_active %}{% set d = dict(d, **{'brightness_pct': night_brightness}) %}{% endif %}
+    {% set kind = night_color_kind if night_active else preset_color_kind %}
+    {% set t = night_temp if night_active else preset_temp %}
+    {% set rgb = night_rgb if night_active else preset_rgb %}
+    {% if kind == 'color_temp' %}{% set d = dict(d, **{'color_temp_kelvin': t}) %}
+    {% elif kind == 'rgb' %}{% set d = dict(d, **{'rgb_color': rgb}) %}{% endif %}
+    {% if trans_s | float(0) > 0 %}{% set d = dict(d, **{'transition': trans_s}) %}{% endif %}
+    {{ d }}
 
 conditions:
   - "{{ trigger.to_state is not none and trigger.to_state.state not in ['unavailable','unknown'] }}"
   - "{{ et != '' }}"
 
 action:
+  - variables:
+      # which configured action applies to this press
+      btn: >-
+        {% if trigger.id != 'press' %}{{ '' }}
+        {% elif et == 'multi_press_1' %}{{ single_action }}
+        {% elif et == 'multi_press_2' %}{{ double_action }}
+        {% elif et in ['long_press'] %}{{ hold_action }}
+        {% else %}{{ '' }}{% endif %}
   - choose:
-      # ---------- scroll up ----------
-      - conditions: "{{ trigger.id == 'up' }}"
-        sequence:
-          - action: light.turn_on
-            target: !input light_target
-            data:
-              brightness_step_pct: "{{ delta }}"
-              transition: "{{ trans_s }}"
-      # ---------- scroll down ----------
-      - conditions: "{{ trigger.id == 'down' }}"
-        sequence:
-          - action: light.turn_on
-            target: !input light_target
-            data:
-              brightness_step_pct: "{{ -delta }}"
-              transition: "{{ trans_s }}"
-      # ---------- single press: night-aware toggle ----------
-      - conditions: "{{ trigger.id == 'press' and et == 'multi_press_1' }}"
+      # ================= WHEEL =================
+      - conditions: "{{ trigger.id in ['up','down'] }}"
         sequence:
           - choose:
-              # currently on -> turn off
-              - conditions: "{{ first_light != '' and is_state(first_light, 'on') }}"
-                sequence:
-                  - action: light.turn_off
-                    target: !input light_target
-                    data: { transition: "{{ trans_s }}" }
-              # off + night -> on at night brightness/colour
-              - conditions: "{{ night_active }}"
+              # --- brightness ---
+              - conditions: "{{ wheel_mode == 'brightness' }}"
                 sequence:
                   - action: light.turn_on
                     target: !input light_target
                     data:
-                      brightness_pct: "{{ night_brightness }}"
-                      color_temp_kelvin: "{{ night_color_temp }}"
+                      brightness_step_pct: "{{ delta if trigger.id == 'up' else -delta }}"
                       transition: "{{ trans_s }}"
-            # off + day -> plain on
-            default:
-              - action: light.turn_on
-                target: !input light_target
-                data: { transition: "{{ trans_s }}" }
-      # ---------- double press: next colour ----------
-      - conditions: "{{ trigger.id == 'press' and et == 'multi_press_2' and colour_control != 'off' }}"
-        sequence:
-          - choose:
-              - conditions: "{{ colour_control == 'color_temp' }}"
+              # --- colour temperature ---
+              - conditions: "{{ wheel_mode == 'color_temp' }}"
                 sequence:
                   - action: light.turn_on
                     target: !input light_target
                     data:
                       color_temp_kelvin: >-
-                        {% set cur = state_attr(first_light, 'color_temp_kelvin') | int(ct_min) %}
-                        {{ [ct_min | int, cur - (ct_step | int)] | max }}
+                        {% set cur = state_attr(first_light, 'color_temp_kelvin') | int(((ct_min|int)+(ct_max|int))//2) %}
+                        {% set d = (ct_step|int) * ([notches|int(1), maxm|int(6)]|min) %}
+                        {% set nv = cur + (d if trigger.id == 'up' else -d) %}
+                        {{ [[nv, ct_min|int]|max, ct_max|int]|min }}
                       transition: "{{ trans_s }}"
-              - conditions: "{{ colour_control == 'rgb' }}"
-                sequence:
-                  - action: light.turn_on
-                    target: !input light_target
-                    data:
-                      rgb_color: >-
-                        {% set lst = rgb_colours %}
-                        {% set cur = state_attr(first_light, 'rgb_color') %}
-                        {% set ns = namespace(i=-1) %}
-                        {% for c in lst %}{% if (c | list) == (cur | list) %}{% set ns.i = loop.index0 %}{% endif %}{% endfor %}
-                        {{ lst[(ns.i + 1) % (lst | length)] }}
-                      transition: "{{ trans_s }}"
-      # ---------- triple press: previous colour ----------
-      - conditions: "{{ trigger.id == 'press' and et == 'multi_press_3' and colour_control != 'off' }}"
-        sequence:
-          - choose:
-              - conditions: "{{ colour_control == 'color_temp' }}"
-                sequence:
-                  - action: light.turn_on
-                    target: !input light_target
-                    data:
-                      color_temp_kelvin: >-
-                        {% set cur = state_attr(first_light, 'color_temp_kelvin') | int(ct_max) %}
-                        {{ [ct_max | int, cur + (ct_step | int)] | min }}
-                      transition: "{{ trans_s }}"
-              - conditions: "{{ colour_control == 'rgb' }}"
+              # --- rgb cycle ---
+              - conditions: "{{ wheel_mode == 'rgb' }}"
                 sequence:
                   - action: light.turn_on
                     target: !input light_target
@@ -281,12 +311,52 @@ action:
                         {% set lst = rgb_colours %}
                         {% set cur = state_attr(first_light, 'rgb_color') %}
                         {% set ns = namespace(i=0) %}
-                        {% for c in lst %}{% if (c | list) == (cur | list) %}{% set ns.i = loop.index0 %}{% endif %}{% endfor %}
-                        {{ lst[(ns.i - 1) % (lst | length)] }}
+                        {% for c in lst %}{% if (c|list) == (cur|list) %}{% set ns.i = loop.index0 %}{% endif %}{% endfor %}
+                        {% set j = (ns.i + 1) if trigger.id == 'up' else (ns.i - 1) %}
+                        {{ lst[j % (lst|length)] }}
                       transition: "{{ trans_s }}"
-      # ---------- long press: off ----------
-      - conditions: "{{ trigger.id == 'press' and et == 'long_press' }}"
+      # ================= PRESS (configured action) =================
+      - conditions: "{{ trigger.id == 'press' and btn == 'toggle' }}"
+        sequence:
+          - if: "{{ first_light != '' and is_state(first_light, 'on') }}"
+            then:
+              - action: light.turn_off
+                target: !input light_target
+                data: { transition: "{{ trans_s }}" }
+            else:
+              - action: light.turn_on
+                target: !input light_target
+                data: "{{ on_data }}"
+      - conditions: "{{ trigger.id == 'press' and btn == 'on' }}"
+        sequence:
+          - action: light.turn_on
+            target: !input light_target
+            data: "{{ on_data }}"
+      - conditions: "{{ trigger.id == 'press' and btn == 'off' }}"
         sequence:
           - action: light.turn_off
             target: !input light_target
             data: { transition: "{{ trans_s }}" }
+      - conditions: "{{ trigger.id == 'press' and btn == 'preset' }}"
+        sequence:
+          - action: light.turn_on
+            target: !input light_target
+            data: "{{ preset_data }}"
+      - conditions: "{{ trigger.id == 'press' and btn == 'color_next' }}"
+        sequence:
+          - action: light.turn_on
+            target: !input light_target
+            data:
+              color_temp_kelvin: >-
+                {% set cur = state_attr(first_light, 'color_temp_kelvin') | int(ct_min) %}
+                {{ [ct_min|int, cur - (ct_step|int)]|max }}
+              transition: "{{ trans_s }}"
+      - conditions: "{{ trigger.id == 'press' and btn == 'color_prev' }}"
+        sequence:
+          - action: light.turn_on
+            target: !input light_target
+            data:
+              color_temp_kelvin: >-
+                {% set cur = state_attr(first_light, 'color_temp_kelvin') | int(ct_max) %}
+                {{ [ct_max|int, cur + (ct_step|int)]|min }}
+              transition: "{{ trans_s }}"
