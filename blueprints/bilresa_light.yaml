@@ -25,17 +25,21 @@ blueprint:
       name: 2 · Wheel events
       icon: mdi:knob
       description: >
-        Pick the three event entities for ONE group. For Group 2 these are
-        "Button (4)" = up, "Button (5)" = down, "Button (6)" = press.
+        Buttons 1–9 = 3 groups × (up, down, press):
+        **Group 1 → 1/2/3, Group 2 → 4/5/6, Group 3 → 7/8/9.**
+        Pick the three for the group you want below.
+        Not sure which is which? Spin/press the wheel, then in
+        **Developer Tools → States** see which `…button_N` just changed —
+        up first, then down, then a press.
       input:
         scroll_up:
-          name: Scroll-up event entity ("Button (4)")
+          name: Scroll-up  →  Button 1 / 4 / 7  (group 1 / 2 / 3)
           selector: { entity: { filter: { domain: event } } }
         scroll_down:
-          name: Scroll-down event entity ("Button (5)")
+          name: Scroll-down  →  Button 2 / 5 / 8
           selector: { entity: { filter: { domain: event } } }
         press:
-          name: Center-press event entity ("Button (6)")
+          name: Center-press  →  Button 3 / 6 / 9
           selector: { entity: { filter: { domain: event } } }
     sec_wheel_mode:
       name: 3 · What the wheel does
