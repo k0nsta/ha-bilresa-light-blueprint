@@ -152,7 +152,8 @@ blueprint:
           selector: { number: { min: 100, max: 1500, step: 50, unit_of_measurement: K, mode: slider } }
         rgb_colours:
           name: RGB cycle list
-          default: [[255, 170, 90], [255, 255, 255], [255, 80, 40], [120, 160, 255], [180, 90, 255]]
+          description: Default is a 12-step rainbow (red → orange → … → magenta). Edit freely.
+          default: [[255, 0, 0], [255, 127, 0], [255, 255, 0], [127, 255, 0], [0, 255, 0], [0, 255, 127], [0, 255, 255], [0, 127, 255], [0, 0, 255], [127, 0, 255], [255, 0, 255], [255, 0, 127]]
           selector: { object: {} }
     sec_dimming:
       name: 7 · Dimming feel
