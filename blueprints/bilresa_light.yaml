@@ -1,0 +1,150 @@
+blueprint:
+  name: IKEA BILRESA scroll wheel — smooth light control
+  description: >
+    Light-only control for the IKEA **BILRESA scroll wheel** (Matter) with **smooth,
+    speed-proportional dimming**.
+
+    The wheel exposes its controls as Matter "generic switch" button-endpoints that
+    fire `event` entities. This blueprint binds **one product group** (scroll-up,
+    scroll-down, center-press) to **one light/area**. Create one automation per group
+    if you use the under-LED button to switch between up to 3 light groups.
+
+    **Smoothness:** every scroll notch fires `multi_press_N`, where *N = number of
+    notches in the gesture*. Brightness changes by `step × N` (capped), with a short
+    transition — so a slow notch nudges, a fast spin sweeps. This is the key fix over
+    blueprints that apply a fixed step per event.
+
+    Center press: single = toggle, double = full brightness, long-press = off
+    (all easy to tweak in the automation YAML afterwards).
+  domain: automation
+  source_url: https://github.com/k0nsta/ha-bilresa-light-blueprint/blob/main/blueprints/bilresa_light.yaml
+  input:
+    devices:
+      name: Wheel events
+      icon: mdi:knob
+      collapsed: false
+      input:
+        scroll_up:
+          name: Scroll-up event entity
+          description: For Group 2 this is `event.bilresa_scroll_wheel_button_4_2`.
+          selector:
+            entity:
+              filter: { domain: event }
+        scroll_down:
+          name: Scroll-down event entity
+          description: For Group 2 this is `event.bilresa_scroll_wheel_button_5_2`.
+          selector:
+            entity:
+              filter: { domain: event }
+        press:
+          name: Center-press event entity
+          description: The one with long_press (button 3/6/9). Group 2 = `..._button_6_2`.
+          selector:
+            entity:
+              filter: { domain: event }
+    target:
+      name: Light
+      icon: mdi:lightbulb
+      input:
+        light_target:
+          name: Light / area to control
+          selector:
+            target:
+              entity:
+                domain: light
+    tuning:
+      name: Dimming feel
+      icon: mdi:tune
+      collapsed: true
+      input:
+        step_pct:
+          name: Brightness per notch (%)
+          description: Base change for a single notch. Fast spins multiply this by the notch count.
+          default: 8
+          selector:
+            number: { min: 1, max: 25, step: 1, unit_of_measurement: "%", mode: slider }
+        max_multiplier:
+          name: Max speed multiplier
+          description: Caps how big a single fast spin can jump (× the base step).
+          default: 6
+          selector:
+            number: { min: 1, max: 8, step: 1, mode: slider }
+        transition:
+          name: Transition (s)
+          description: >
+            Glides each change instead of snapping. Keep at 0 for IKEA/Matter bulbs —
+            transitions make many Matter lights freeze/lag on fast scrolls. Raise only if
+            your bulb handles it well.
+          default: 0
+          selector:
+            number: { min: 0, max: 2, step: 0.1, unit_of_measurement: s, mode: slider }
+
+# queued + small cap: a fast spin's burst can't pile up into the ~10s "freeze"
+# users hit elsewhere — excess events are dropped instead of backlogging the light.
+mode: queued
+max: 4
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input scroll_up
+    id: up
+  - trigger: state
+    entity_id: !input scroll_down
+    id: down
+  - trigger: state
+    entity_id: !input press
+    id: press
+
+variables:
+  et: "{{ trigger.to_state.attributes.event_type | default('') }}"
+  notches: "{{ (et.split('_')[-1] | int(1)) if 'multi_press' in et else 1 }}"
+  step: !input step_pct
+  maxm: !input max_multiplier
+  trans: !input transition
+  delta: "{{ ([notches | int(1), maxm | int(6)] | min) * (step | int(8)) }}"
+
+conditions:
+  - "{{ trigger.to_state is not none and trigger.to_state.state not in ['unavailable','unknown'] }}"
+  - "{{ et != '' }}"
+
+action:
+  - choose:
+      # ---- scroll up: brighten by step*N ----
+      - conditions: "{{ trigger.id == 'up' }}"
+        sequence:
+          - action: light.turn_on
+            target: !input light_target
+            data:
+              brightness_step_pct: "{{ delta }}"
+              transition: "{{ trans }}"
+      # ---- scroll down: dim by step*N ----
+      - conditions: "{{ trigger.id == 'down' }}"
+        sequence:
+          - action: light.turn_on
+            target: !input light_target
+            data:
+              brightness_step_pct: "{{ -delta }}"
+              transition: "{{ trans }}"
+      # ---- single press: toggle ----
+      - conditions: "{{ trigger.id == 'press' and et == 'multi_press_1' }}"
+        sequence:
+          - action: light.toggle
+            target: !input light_target
+            data:
+              transition: "{{ trans }}"
+      # ---- double press: full brightness ----
+      - conditions: "{{ trigger.id == 'press' and et == 'multi_press_2' }}"
+        sequence:
+          - action: light.turn_on
+            target: !input light_target
+            data:
+              brightness_pct: 100
+              transition: "{{ trans }}"
+      # ---- long press: off ----
+      - conditions: "{{ trigger.id == 'press' and et == 'long_press' }}"
+        sequence:
+          - action: light.turn_off
+            target: !input light_target
+            data:
+              transition: "{{ trans }}"
