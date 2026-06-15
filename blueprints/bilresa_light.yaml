@@ -68,8 +68,7 @@ blueprint:
             { label: "On with preset (brightness + colour)", value: preset },
             { label: "Toggle preset (preset on / off)", value: toggle_preset },
             { label: "Activate a scene", value: scene },
-            { label: "Next colour", value: color_next },
-            { label: "Previous colour", value: color_prev },
+            { label: "Cycle colour (round-robin)", value: color_cycle },
             { label: "Do nothing", value: none } ] } }
         single_scene:
           name: Single-click scene (when action = Activate a scene)
@@ -77,7 +76,7 @@ blueprint:
           selector: { entity: { filter: { domain: scene } } }
         double_action:
           name: Double-click
-          default: color_next
+          default: color_cycle
           selector: *act
         double_scene:
           name: Double-click scene (when action = Activate a scene)
@@ -128,6 +127,17 @@ blueprint:
       icon: mdi:palette
       collapsed: true
       input:
+        cycle_kind:
+          name: Round-robin cycles…
+          description: >
+            What the "Cycle colour (round-robin)" button action steps through.
+            Each press advances one step and wraps back to the start at the end.
+          default: color_temp
+          selector:
+            select:
+              options:
+                - { label: "Colour temperature (warm → cool, wrap)", value: color_temp }
+                - { label: "RGB list (next colour, wrap)", value: rgb }
         ct_min:
           name: Warmest temp (K)
           default: 2200
@@ -265,6 +275,7 @@ variables:
   preset_color_kind: !input preset_color_kind
   preset_temp: !input preset_temp
   preset_rgb: !input preset_rgb
+  cycle_kind: !input cycle_kind
   ct_min: !input ct_min
   ct_max: !input ct_max
   ct_step: !input ct_step
@@ -438,21 +449,32 @@ action:
           - action: scene.turn_on
             target: { entity_id: "{{ scene_for }}" }
             data: { transition: "{{ trans_s }}" }
-      - conditions: "{{ trigger.id == 'press' and btn == 'color_next' }}"
+      - conditions: "{{ trigger.id == 'press' and btn == 'color_cycle' }}"
         sequence:
-          - action: light.turn_on
-            target: !input light_target
-            data:
-              color_temp_kelvin: >-
-                {% set cur = state_attr(first_light, 'color_temp_kelvin') | int(ct_min) %}
-                {{ [ct_min|int, cur - (ct_step|int)]|max }}
-              transition: "{{ trans_s }}"
-      - conditions: "{{ trigger.id == 'press' and btn == 'color_prev' }}"
-        sequence:
-          - action: light.turn_on
-            target: !input light_target
-            data:
-              color_temp_kelvin: >-
-                {% set cur = state_attr(first_light, 'color_temp_kelvin') | int(ct_max) %}
-                {{ [ct_max|int, cur + (ct_step|int)]|min }}
-              transition: "{{ trans_s }}"
+          - choose:
+              # --- RGB list: next colour, wrap to first ---
+              - conditions: "{{ cycle_kind == 'rgb' }}"
+                sequence:
+                  - action: light.turn_on
+                    target: !input light_target
+                    data:
+                      rgb_color: >-
+                        {% set lst = rgb_colours %}
+                        {% set cur = state_attr(first_light, 'rgb_color') %}
+                        {% set ns = namespace(i=0) %}
+                        {% for c in lst %}{% if (c|list) == (cur|list) %}{% set ns.i = loop.index0 %}{% endif %}{% endfor %}
+                        {{ lst[(ns.i + 1) % (lst|length)] }}
+                      transition: "{{ trans_s }}"
+            # --- colour temperature: step warm → cool, wrap to warmest ---
+            default:
+              - action: light.turn_on
+                target: !input light_target
+                data:
+                  color_temp_kelvin: >-
+                    {% set lo = ct_min|int %}
+                    {% set hi = ct_max|int %}
+                    {% set st = ct_step|int %}
+                    {% set cur = state_attr(first_light, 'color_temp_kelvin') | int(lo) %}
+                    {% set nv = cur + st %}
+                    {{ lo if nv > hi else nv }}
+                  transition: "{{ trans_s }}"
