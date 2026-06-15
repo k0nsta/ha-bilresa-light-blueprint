@@ -66,6 +66,7 @@ blueprint:
             { label: "Turn on", value: "on" },
             { label: "Turn off", value: "off" },
             { label: "On with preset (brightness + colour)", value: preset },
+            { label: "Toggle preset (preset on / off)", value: toggle_preset },
             { label: "Activate a scene", value: scene },
             { label: "Next colour", value: color_next },
             { label: "Previous colour", value: color_prev },
@@ -416,6 +417,17 @@ action:
           - action: light.turn_on
             target: !input light_target
             data: "{{ preset_data }}"
+      - conditions: "{{ trigger.id == 'press' and btn == 'toggle_preset' }}"
+        sequence:
+          - if: "{{ first_light != '' and is_state(first_light, 'on') }}"
+            then:
+              - action: light.turn_off
+                target: !input light_target
+                data: { transition: "{{ trans_s }}" }
+            else:
+              - action: light.turn_on
+                target: !input light_target
+                data: "{{ preset_data }}"
       - conditions: >-
           {{ trigger.id == 'press' and btn == 'scene'
              and scene_for not in ['', none] and (scene_for | string | length) > 0 }}
