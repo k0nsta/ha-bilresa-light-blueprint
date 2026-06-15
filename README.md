@@ -11,8 +11,9 @@ RGB** control.
 1. **Pick the light(s)** — one, a group, an area, or several.
 2. **Pick the 3 wheel events** for ONE group (see groups below).
 3. **Choose what the wheel does** — Brightness / Colour temperature / RGB cycle.
-4. **Assign each press an action** — single / double / long-press → Toggle · On · Off ·
-   On-with-preset · Activate a scene · Next colour · Previous colour · Nothing.
+4. **Assign each press an action** — single / double / **triple** / long-press → Toggle · On ·
+   Off · On-with-preset · Activate a scene · Next colour · Previous colour · Nothing.
+   (Set single-click to *Do nothing* if you want only deliberate double/triple presses.)
 5. **(Recommended) add a brightness helper** — see below; makes dimming smooth on Matter/Thread.
 6. Optional: **preset** (brightness + colour), **colour ranges**, **dimming feel**,
    **transitions**, **night mode**.

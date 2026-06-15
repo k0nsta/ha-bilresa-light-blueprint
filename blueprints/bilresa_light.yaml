@@ -82,6 +82,14 @@ blueprint:
           name: Double-click scene (when action = Activate a scene)
           default: []
           selector: { entity: { filter: { domain: scene } } }
+        triple_action:
+          name: Triple-click
+          default: none
+          selector: *act
+        triple_scene:
+          name: Triple-click scene (when action = Activate a scene)
+          default: []
+          selector: { entity: { filter: { domain: scene } } }
         hold_action:
           name: Long-press (hold)
           default: "off"
@@ -238,12 +246,15 @@ variables:
   single_action: !input single_action
   double_action: !input double_action
   hold_action: !input hold_action
+  triple_action: !input triple_action
   single_scene: !input single_scene
   double_scene: !input double_scene
+  triple_scene: !input triple_scene
   hold_scene: !input hold_scene
   scene_for: >-
     {% if et == 'multi_press_1' %}{{ single_scene }}
     {% elif et == 'multi_press_2' %}{{ double_scene }}
+    {% elif et == 'multi_press_3' %}{{ triple_scene }}
     {% elif et == 'long_press' %}{{ hold_scene }}
     {% else %}{{ '' }}{% endif %}
   preset_brightness: !input preset_brightness
@@ -314,6 +325,7 @@ action:
         {% if trigger.id != 'press' %}{{ '' }}
         {% elif et == 'multi_press_1' %}{{ single_action }}
         {% elif et == 'multi_press_2' %}{{ double_action }}
+        {% elif et == 'multi_press_3' %}{{ triple_action }}
         {% elif et in ['long_press'] %}{{ hold_action }}
         {% else %}{{ '' }}{% endif %}
   - choose:
