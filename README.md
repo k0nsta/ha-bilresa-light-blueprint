@@ -12,9 +12,24 @@ RGB** control.
 2. **Pick the 3 wheel events** for ONE group (see groups below).
 3. **Choose what the wheel does** — Brightness / Colour temperature / RGB cycle.
 4. **Assign each press an action** — single / double / long-press → Toggle · On · Off ·
-   On-with-preset · Next colour · Previous colour · Nothing.
-5. Optional: **preset** (brightness + colour), **colour ranges**, **dimming feel**,
+   On-with-preset · Activate a scene · Next colour · Previous colour · Nothing.
+5. **(Recommended) add a brightness helper** — see below; makes dimming smooth on Matter/Thread.
+6. Optional: **preset** (brightness + colour), **colour ranges**, **dimming feel**,
    **transitions**, **night mode**.
+
+## Smooth dimming — the brightness helper
+
+Relative brightness stepping (`brightness_step_pct`) is computed from Home Assistant's
+*last-known* brightness. On Matter/Thread bulbs each command takes ~250 ms to report back, so
+a fast spin fires steps faster than the bulb updates → they read stale values and
+**overshoot or cancel out** (laggy, unpredictable).
+
+Fix: create an **`input_number`** helper (min 1, max 100, step 1) and select it in
+**7 · Dimming feel → Brightness helper**. The wheel then bumps the helper **instantly**
+(local, ~1 ms, never stale) and sets the bulb to that **absolute** value. Bursts collapse to
+the correct final brightness — predictable, no compounding, latency drops to a single
+round-trip. Use **one helper per light/group**. Leave it empty to fall back to relative
+stepping.
 
 ## The 3 groups (and how to use them)
 

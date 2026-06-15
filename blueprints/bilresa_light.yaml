@@ -140,6 +140,16 @@ blueprint:
       icon: mdi:tune
       collapsed: true
       input:
+        brightness_helper:
+          name: Brightness helper (input_number) — smooth absolute dimming
+          description: >
+            Strongly recommended for Matter/Thread bulbs. Create an `input_number`
+            (min 1, max 100, step 1) and select it here. The wheel then dims by setting an
+            **absolute** brightness through this helper, so fast spins can't overshoot or
+            lag-compound the way relative steps do. Leave empty to fall back to relative
+            stepping. Use one helper per light/group.
+          default: []
+          selector: { entity: { filter: { domain: input_number } } }
         step_pct:
           name: Brightness per notch (%)
           default: 8
@@ -219,6 +229,11 @@ variables:
   use_trans: !input use_transition
   trans_val: !input transition
   trans_s: "{{ trans_val if use_trans else 0 }}"
+  brightness_helper: !input brightness_helper
+  use_helper: >-
+    {{ brightness_helper not in ['', none]
+       and (brightness_helper | string | length) > 0
+       and has_value(brightness_helper) }}
   wheel_mode: !input wheel_mode
   single_action: !input single_action
   double_action: !input double_action
@@ -309,11 +324,33 @@ action:
               # --- brightness ---
               - conditions: "{{ wheel_mode == 'brightness' }}"
                 sequence:
-                  - action: light.turn_on
-                    target: !input light_target
-                    data:
-                      brightness_step_pct: "{{ delta if trigger.id == 'up' else -delta }}"
-                      transition: "{{ trans_s }}"
+                  - choose:
+                      # absolute via helper: instant, authoritative, never lag-compounds
+                      - conditions: "{{ use_helper }}"
+                        sequence:
+                          - variables:
+                              cur_b: >-
+                                {% set h = states(brightness_helper) | float(-1) %}
+                                {% if h < 0 %}{{ (state_attr(first_light, 'brightness') | int(128)) / 2.55 }}
+                                {% else %}{{ h }}{% endif %}
+                              new_b: >-
+                                {% set nv = cur_b + (delta if trigger.id == 'up' else -delta) %}
+                                {{ [[nv | round(0), 1] | max, 100] | min | int }}
+                          - action: input_number.set_value
+                            target: { entity_id: "{{ brightness_helper }}" }
+                            data: { value: "{{ new_b }}" }
+                          - action: light.turn_on
+                            target: !input light_target
+                            data:
+                              brightness_pct: "{{ new_b }}"
+                              transition: "{{ trans_s }}"
+                    # relative fallback when no helper is configured
+                    default:
+                      - action: light.turn_on
+                        target: !input light_target
+                        data:
+                          brightness_step_pct: "{{ delta if trigger.id == 'up' else -delta }}"
+                          transition: "{{ trans_s }}"
               # --- colour temperature ---
               - conditions: "{{ wheel_mode == 'color_temp' }}"
                 sequence:
