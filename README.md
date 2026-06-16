@@ -12,7 +12,7 @@ RGB** control.
 2. **Pick the 3 wheel events** for ONE group (see groups below).
 3. **Choose what the wheel does** — Brightness / Colour temperature / RGB cycle.
 4. **Assign each press an action** — single / double / **triple** / long-press → Toggle · On ·
-   Off · On-with-preset · Activate a scene · Next colour · Previous colour · Nothing.
+   Off · On-with-preset · Activate a scene · **Cycle colour (round-robin)** · Nothing.
    (Set single-click to *Do nothing* if you want only deliberate double/triple presses.)
 5. **(Recommended) add a brightness helper** — see below; makes dimming smooth on Matter/Thread.
 6. Optional: **preset** (brightness + colour), **colour ranges**, **dimming feel**,
@@ -63,15 +63,17 @@ also stops bursts from piling up.
 - **Wheel does:** Brightness · Colour temperature (warm↔cool) · RGB cycle.
 - **Button actions** (single/double/triple/long): Toggle · On · Off · On-with-preset ·
   **Toggle-preset** (preset on when off / off when on) · **Activate a scene** (e.g. a
-  "Watch TV" scene — pick a scene per button) · Next/Previous colour · Nothing.
+  "Watch TV" scene — pick a scene per button) · **Cycle colour (round-robin)** · Nothing.
 - **Preset:** brightness + colour (keep / colour-temp / RGB) for "On-with-preset".
-- **Colour:** Kelvin range/step for temp, and an editable RGB cycle list.
+- **Colour:** the **Cycle colour** button round-robins over either **colour temperature**
+  (Kelvin range/step) or an editable **RGB cycle list** (default: a 12-step rainbow) — choose
+  which via **Round-robin cycles…** in section 6. Each press advances one step and wraps at the end.
 - **Night mode:** enable + **time schedule** (start/end) + optional override entity; night
   **brightness** + night **colour (temp _or_ RGB)**. During night mode, turn-on actions use
   the night settings.
 
-> Colour next/previous reads the light's current state, so for the most reliable cycling
-> point at specific light entities rather than only an area.
+> Colour cycling reads the light's current state to find its place in the cycle, so for the
+> most reliable results point at specific light entities rather than only an area.
 
 ## License
 
